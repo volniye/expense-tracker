@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Трекер расходов Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-database.js"></script>
+    <style>
+        :root {
+            --color-beige: #E8DCC8;
+            --color-brown: #9B7652;
+            --color-sage: #A3A999;
+            --color-dark: #5A6B7A;
+        }
+
+        .tab-active {
+            border-bottom: 3px solid var(--color-brown);
+            color: var(--color-brown);
+        }
+
+        .btn-primary {
+            background-color: var(--color-brown);
+        }
+
+        .btn-primary:hover {
+            background-color: #8B6B47;
+        }
+
+        .stat-card {
+            border-left: 4px solid var(--color-sage);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="app">
+        <!-- Header -->
+        <header class="bg-white shadow-sm sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-4 py-4">
+                <div class="flex items-center justify-between mb-4">
+                    <h1 class="text-3xl font-bold" style="color: var(--color-brown);">▪ Трекер расходов</h1>
+                    <div class="flex items-center gap-4">
+                        <div class="text-sm font-medium text-gray-700">Валюта: €</div>
+                        <button onclick="exportAllData()" class="text-white px-4 py-2 rounded-lg btn-primary">
+                            ▼ Экспорт
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tabs -->
+                <div class="flex gap-6 border-b-2 border-gray-200 overflow-x-auto">
+                    <button onclick="switchTab('tracker')" id="tab-tracker" class="tab-active pb-3 font-medium whitespace-nowrap">
+                        ▪ Дневной трекер
+                    </button>
+                    <button onclick="switchTab('summary')" id="tab-summary" class="pb-3 font-medium whitespace-nowrap text-gray-600">
+                        ▪ Сводка
+                    </button>
+                    <button onclick="switchTab('monthly')" id="tab-monthly" class="pb-3 font-medium whitespace-nowrap text-gray-600">
+                        ▪ Итоги по месяцам
+                    </button>
+                    <button onclick="switchTab('budget')" id="tab-budget" class="pb-3 font-medium whitespace-nowrap text-gray-600">
+                        ▪ Бюджет
+                    </button>
+                    <button onclick="switchTab('upload')" id="tab-upload" class="pb-3 font-medium whitespace-nowrap text-gray-600">
+                        ▪ Загрузить данные
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 py-8">
+            <!-- 1. Daily Tracker Tab -->
+            <div id="tracker-tab" class="tab-content">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- Input Form -->
+                    <div class="lg:col-span-1">
+                        <div class="bg-white rounded-lg shadow p-6 sticky top-24">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-4">Новая запись</h2>
+
+                            <!-- Toggle Расход/Приход -->
+                            <div class="flex gap-2 mb-6 bg-gray-100 p-1 rounded-lg">
+                                <button type="button" onclick="toggleTransactionType('expense')" id="btn-expense" class="flex-1 py-2 px-3 rounded font-medium transition" style="background-color: var(--color-brown); color: white;">
+                                    Расход
+                                </button>
+                                <button type="button" onclick="toggleTransactionType('income')" id="btn-income" class="flex-1 py-2 px-3 rounded font-medium transition text-gray-600">
+                                    Приход
+                                </button>
+                            </div>
+
+                            <form id="transactionForm" class="space-y-4">
+                                <!-- Category (only for expenses) -->
+                                <div id="categoryField">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Категория</label>
+                                    <select id="category" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Сумма (€)</label>
+                                    <input type="number" id="transactionAmount" step="0.01" placeholder="0.00" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Дата</label>
+                                    <input type="date" id="transactionDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Примечание</label>
+                                    <input type="text" id="transactionNotes" placeholder="Опционально" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                </div>
+
+                                <button type="submit" class="w-full text-white font-semibold py-2 px-4 rounded-lg transition btn-primary">
+                                    ▼ Добавить
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Stats & Charts -->
+                    <div class="lg:col-span-2 space-y-6">
+                        <!-- Stats Cards -->
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="stats">
+                        </div>
+
+                        <!-- Charts -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-white rounded-lg shadow p-6">
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4">По категориям</h3>
+                                <canvas id="categoryChart"></canvas>
+                            </div>
+                            <div class="bg-white rounded-lg shadow p-6">
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4">По датам</h3>
+                                <canvas id="dateChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Filters -->
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Фильтры</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Категория</label>
+                                    <select id="filterCategory" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">От</label>
+                                    <input type="date" id="filterDateFrom" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">До</label>
+                                    <input type="date" id="filterDateTo" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                </div>
+                                <div class="flex items-end">
+                                    <button onclick="exportTrackerCSV()" class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition">
+                                        ▼ CSV
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Expenses Table -->
+                        <div class="bg-white rounded-lg shadow overflow-hidden">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <h3 class="text-lg font-semibold text-gray-900">История расходов</h3>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead class="bg-gray-50 border-b border-gray-200">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-sm font-semibold text-gray-900">Дата</th>
+                                            <th class="px-6 py-3 text-left text-sm font-semibold text-gray-900">Категория</th>
+                                            <th class="px-6 py-3 text-right text-sm font-semibold text-gray-900">Сумма</th>
+                                            <th class="px-6 py-3 text-left text-sm font-semibold text-gray-900">Примечание</th>
+                                            <th class="px-6 py-3 text-center text-sm font-semibold text-gray-900">Удалить</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="expenseTable"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Summary Tab -->
+            <div id="summary-tab" class="tab-content hidden">
+                <div class="space-y-6">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h2 class="text-2xl font-bold text-gray-900 mb-6">Сводка по датам</h2>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">От</label>
+                                <input type="date" id="summaryDateFrom" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" onchange="renderSummaryTab()">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">До</label>
+                                <input type="date" id="summaryDateTo" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" onchange="renderSummaryTab()">
+                            </div>
+                            <div class="flex items-end">
+                                <button onclick="resetSummaryDates()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition">
+                                    ▪ Сбросить
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-white rounded-lg shadow p-6">
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4">Расходы по категориям</h3>
+                                <canvas id="summaryChart"></canvas>
+                            </div>
+
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4">Детали</h3>
+                                <div class="space-y-3" id="summaryDetails"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Monthly Summary Tab -->
+            <div id="monthly-tab" class="tab-content hidden">
+                <div class="space-y-6">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h2 class="text-2xl font-bold text-gray-900 mb-4">Итоги по месяцам 2026</h2>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left font-semibold text-gray-900">Показатель</th>
+                                        <th class="px-4 py-2 text-center font-semibold text-gray-900">Янв</th>
+                                        <th class="px-4 py-2 text-center font-semibold text-gray-900">Фев</th>
+                                        <th class="px-4 py-2 text-center font-semibold text-gray-900">Мар</th>
+                                        <th class="px-4 py-2 text-center font-semibold text-gray-900">Апр</th>
+                                        <th class="px-4 py-2 text-center font-semibold text-gray-900">Май</th>
+                                        <th class="px-4 py-2 text-center font-semibold text-gray-900">Июн</th>
+                                        <th class="px-4 py-2 text-center font-semibold text-gray-900">Июл</th>
+                                        <th class="px-4 py-2 text-center font-semibold text-gray-900">Авг</th>
+                                        <th class="px-4 py-2 text-center font-semibold text-gray-900">Сен</th>
+                                        <th class="px-4 py-2 text-center font-semibold text-gray-900">Окт</th>
+                                        <th class="px-4 py-2 text-center font-semibold text-gray-900">Ноя</th>
+                                        <th class="px-4 py-2 text-center font-semibold text-gray-900">Дек</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="monthlyTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Accumulation Chart -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Накопления по месяцам</h3>
+                        <canvas id="accumulationChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Budget Tab -->
+            <div id="budget-tab" class="tab-content hidden">
+                <div class="space-y-6">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <h2 class="text-2xl font-bold text-gray-900">Бюджет 2026</h2>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2">
+                                    <input type="radio" name="budgetVersion" value="max" checked onclick="renderBudgetTab()">
+                                    <span class="font-medium text-gray-700">Максимум</span>
+                                </label>
+                                <label class="flex items-center gap-2">
+                                    <input type="radio" name="budgetVersion" value="econ" onclick="renderBudgetTab()">
+                                    <span class="font-medium text-gray-700">Эконом</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-sm font-semibold text-gray-900">Категория</th>
+                                        <th class="px-6 py-3 text-right text-sm font-semibold text-gray-900">Бюджет (€)</th>
+                                        <th class="px-6 py-3 text-right text-sm font-semibold text-gray-900">Потрачено (€)</th>
+                                        <th class="px-6 py-3 text-right text-sm font-semibold text-gray-900">Осталось (€)</th>
+                                        <th class="px-6 py-3 text-center text-sm font-semibold text-gray-900">%</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="budgetTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Upload Data Tab -->
+            <div id="upload-tab" class="tab-content hidden">
+                <div class="max-w-2xl mx-auto">
+                    <div class="bg-white rounded-lg shadow p-8">
+                        <h2 class="text-2xl font-bold text-gray-900 mb-6">Загрузить месячные данные</h2>
+
+                        <div class="space-y-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Месяц и год</label>
+                                <input type="month" id="uploadMonth" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Остаток на начало месяца (<span id="uploadLabelBalance">€</span>)</label>
+                                <input type="number" id="uploadBalance" step="0.01" placeholder="0.00" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Приход (<span id="uploadLabelIncome">€</span>)</label>
+                                <input type="number" id="uploadIncome" step="0.01" placeholder="0.00" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Расходы (<span id="uploadLabelExpenses">€</span>)</label>
+                                <input type="number" id="uploadExpenses" step="0.01" placeholder="0.00" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+
+                            <button onclick="uploadMonthlyData()" class="w-full text-white font-semibold py-3 px-4 rounded-lg transition btn-primary">
+                                ▲ Загрузить данные
+                            </button>
+
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <p class="text-sm text-blue-900">
+                                    <strong>Совет:</strong> Загруженные данные сохранятся в приложении и будут использованы на вкладке "Итоги по месяцам".
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Uploaded Data -->
+                        <div class="mt-8 pt-8 border-t border-gray-200">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Загруженные данные</h3>
+                            <div id="uploadedDataList" class="space-y-2">
+                                <p class="text-gray-500">Пока нет загруженных данных</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // ==================== FIREBASE CONFIG ====================
+        const firebaseConfig = {
+            apiKey: "AIzaSyBns72_fdT3eJdtBPNutmkFLe4zNv8HBdM",
+            authDomain: "family-budget-7fd27.firebaseapp.com",
+            databaseURL: "https://family-budget-7fd27-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "family-budget-7fd27",
+            storageBucket: "family-budget-7fd27.firebasestorage.app",
+            messagingSenderId: "521623435839",
+            appId: "1:521623435839:web:c1ae64b0f7b6b4035fd68a"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // ==================== CONFIG ====================
+        const currentCurrency = 'EUR';
+
+        function getCurrencySymbol() {
+            return '€';
+        }
+
+        const CATEGORIES = [
+            'Еда дома',
+            'Обычная',
+            'Снеки/чипсы',
+            'Сладкое, газировка',
+            'Готовая',
+            'Еда вне дома',
+            'Квартира',
+            'Аренда',
+            'Коммунальные платежи',
+            'Цифровые услуги',
+            'Интернет',
+            'Подписки',
+            'Курение',
+            'Банковские услуги',
+        ];
+
+        const BUDGET_DATA = {
+            max: {
+                'Еда': 13200.00,
+                'Бытовая химия': 1200.00,
+                'Курение': 600.00,
+                'Квартира': 9000.00,
+                'цифр услуги + банкинг': 1800.00,
+                'Услуги развития': 8760.00,
+                'Налоги': 15220.80,
+                'Страховка': 2135.88,
+                'Бл-ть': 600.00,
+                'Медицина/косметология': 2000.00,
+                'Финанц расходы': 2000.00,
+                'Подарки': 2000.00,
+                'Путешествия': 6000.00,
+            },
+            econ: {
+                'Еда': 9600.00,
+                'Бытовая химия': 1200.00,
+                'Курение': 100.00,
+                'Квартира': 9000.00,
+                'цифр услуги + банкинг': 1800.00,
+                'Услуги развития': 6840.00,
+                'Налоги': 15220.80,
+                'Страховка': 2135.88,
+                'Бл-ть': 600.00,
+                'Медицина/косметология': 2000.00,
+                'Финанц расходы': 2000.00,
+                'Подарки': 2000.00,
+                'Путешествия': 6000.00,
+            }
+        };
+
+        const MONTHS = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+
+        // ==================== STATE ====================
+        let expenses = [];
+        let income = [];
+        let monthlyData = {};
+        let transactionType = 'expense';
+        let categoryChart = null;
+        let dateChart = null;
+        let accumulationChart = null;
+        let summaryChart = null;
+        let isLoading = true;
+
+        // ==================== INIT ====================
+        function init() {
+            setupCategories();
+            setupForm();
+            setupTransactionForm();
+            setupFilters();
+            setupSummary();
+            loadFirebaseData();
+        }
+
+        function loadFirebaseData() {
+            // Load expenses
+            db.ref('expenses').on('value', (snapshot) => {
+                expenses = [];
+                snapshot.forEach(child => {
+                    expenses.push({
+                        id: child.key,
+                        ...child.val()
+                    });
+                });
+                expenses.sort((a, b) => new Date(b.date) - new Date(a.date));
+                renderAllTabs();
+            });
+
+            // Load income
+            db.ref('income').on('value', (snapshot) => {
+                income = [];
+                snapshot.forEach(child => {
+                    income.push({
+                        id: child.key,
+                        ...child.val()
+                    });
+                });
+                income.sort((a, b) => new Date(b.date) - new Date(a.date));
+                renderAllTabs();
+            });
+
+            // Load monthly data
+            db.ref('monthlyData').on('value', (snapshot) => {
+                monthlyData = snapshot.val() || {};
+                renderAllTabs();
+            });
+        }
+
+        function setupSummary() {
+            const today = new Date().toISOString().split('T')[0];
+            const oneMonthAgo = new Date();
+            oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+            const oneMonthAgoStr = oneMonthAgo.toISOString().split('T')[0];
+
+            document.getElementById('summaryDateFrom').value = oneMonthAgoStr;
+            document.getElementById('summaryDateTo').value = today;
+        }
+
+        function resetSummaryDates() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('summaryDateFrom').value = '';
+            document.getElementById('summaryDateTo').value = '';
+            renderSummaryTab();
+        }
+
+        function toggleTransactionType(type) {
+            transactionType = type;
+
+            // Update button styles
+            document.getElementById('btn-expense').style.backgroundColor = type === 'expense' ? 'var(--color-brown)' : 'transparent';
+            document.getElementById('btn-expense').style.color = type === 'expense' ? 'white' : '#4b5563';
+
+            document.getElementById('btn-income').style.backgroundColor = type === 'income' ? 'var(--color-brown)' : 'transparent';
+            document.getElementById('btn-income').style.color = type === 'income' ? 'white' : '#4b5563';
+
+            // Show/hide category field
+            const categoryField = document.getElementById('categoryField');
+            if (type === 'expense') {
+                categoryField.style.display = 'block';
+            } else {
+                categoryField.style.display = 'none';
+            }
+        }
+
+        function setupTransactionForm() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('transactionDate').value = today;
+            toggleTransactionType('expense');
+
+            document.getElementById('transactionForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const amount = parseFloat(document.getElementById('transactionAmount').value);
+                if (!amount) return;
+
+                const id = Date.now().toString();
+                const data = {
+                    amount: amount,
+                    date: document.getElementById('transactionDate').value,
+                    notes: document.getElementById('transactionNotes').value,
+                };
+
+                if (transactionType === 'expense') {
+                    data.category = document.getElementById('category').value;
+                    db.ref('expenses/' + id).set(data);
+                } else {
+                    db.ref('income/' + id).set(data);
+                }
+
+                document.getElementById('transactionForm').reset();
+                document.getElementById('transactionDate').value = today;
+            });
+        }
+
+        function setupCategories() {
+            const categorySelect = document.getElementById('category');
+            const filterCategory = document.getElementById('filterCategory');
+
+            CATEGORIES.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                categorySelect.appendChild(option);
+
+                const filterOption = document.createElement('option');
+                filterOption.value = cat;
+                filterOption.textContent = cat;
+                filterCategory.appendChild(filterOption);
+            });
+
+            filterCategory.innerHTML = '<option value="all">Все категории</option>' + filterCategory.innerHTML;
+
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('date').value = today;
+        }
+
+        function setupForm() {
+            document.getElementById('expenseForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const amount = parseFloat(document.getElementById('amount').value);
+                if (!amount) return;
+
+                const today = new Date().toISOString().split('T')[0];
+                expenses.unshift({
+                    id: Date.now(),
+                    category: document.getElementById('category').value,
+                    amount: amount,
+                    date: document.getElementById('date').value,
+                    notes: document.getElementById('notes').value,
+                });
+
+                localStorage.setItem('expenses', JSON.stringify(expenses));
+                document.getElementById('expenseForm').reset();
+                document.getElementById('date').value = today;
+                renderAllTabs();
+            });
+        }
+
+        function setupFilters() {
+            ['filterCategory', 'filterDateFrom', 'filterDateTo'].forEach(id => {
+                document.getElementById(id).addEventListener('change', () => renderTrackerTab());
+            });
+        }
+
+        // ==================== TAB NAVIGATION ====================
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.querySelectorAll('[id^="tab-"]').forEach(btn => btn.classList.remove('tab-active'));
+
+            document.getElementById(tabName + '-tab').classList.remove('hidden');
+            document.getElementById('tab-' + tabName).classList.add('tab-active');
+
+            renderTab(tabName);
+        }
+
+        function renderTab(tabName) {
+            if (tabName === 'tracker') renderTrackerTab();
+            if (tabName === 'summary') renderSummaryTab();
+            if (tabName === 'monthly') renderMonthlyTab();
+            if (tabName === 'budget') renderBudgetTab();
+        }
+
+        function renderAllTabs() {
+            renderTrackerTab();
+            renderSummaryTab();
+            renderMonthlyTab();
+            renderBudgetTab();
+        }
+
+        // ==================== TRACKER TAB ====================
+        function renderTrackerTab() {
+            renderStats();
+            renderCharts();
+            renderTable();
+        }
+
+        function getFilteredExpenses() {
+            const filterCategory = document.getElementById('filterCategory').value;
+            const filterDateFrom = document.getElementById('filterDateFrom').value;
+            const filterDateTo = document.getElementById('filterDateTo').value;
+
+            return expenses.filter(e => {
+                if (filterCategory !== 'all' && e.category !== filterCategory) return false;
+                if (filterDateFrom && e.date < filterDateFrom) return false;
+                if (filterDateTo && e.date > filterDateTo) return false;
+                return true;
+            });
+        }
+
+        function renderStats() {
+            const filtered = getFilteredExpenses();
+            const total = filtered.reduce((sum, e) => sum + e.amount, 0);
+            const avg = filtered.length > 0 ? (total / filtered.length).toFixed(2) : 0;
+            const max = filtered.length > 0 ? Math.max(...filtered.map(e => e.amount)).toFixed(0) : 0;
+            const symbol = getCurrencySymbol();
+
+            const statsHtml = `
+                <div class="bg-white rounded-lg shadow p-4 stat-card">
+                    <p class="text-sm text-gray-600">Всего</p>
+                    <p class="text-3xl font-bold text-gray-900">${total.toFixed(0)}</p>
+                    <p class="text-xs text-gray-500 mt-1">${symbol}</p>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4 stat-card">
+                    <p class="text-sm text-gray-600">Операций</p>
+                    <p class="text-3xl font-bold text-gray-900">${filtered.length}</p>
+                    <p class="text-xs text-gray-500 mt-1">записей</p>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4 stat-card">
+                    <p class="text-sm text-gray-600">Среднее</p>
+                    <p class="text-3xl font-bold text-gray-900">${avg}</p>
+                    <p class="text-xs text-gray-500 mt-1">${symbol}</p>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4 stat-card">
+                    <p class="text-sm text-gray-600">Макс</p>
+                    <p class="text-3xl font-bold text-gray-900">${max}</p>
+                    <p class="text-xs text-gray-500 mt-1">${symbol}</p>
+                </div>
+            `;
+            document.getElementById('stats').innerHTML = statsHtml;
+        }
+
+        function renderCharts() {
+            const filtered = getFilteredExpenses();
+
+            // Category Chart
+            const categoryStats = CATEGORIES.map(cat => {
+                const total = filtered.filter(e => e.category === cat).reduce((sum, e) => sum + e.amount, 0);
+                return { category: cat, total: total };
+            }).filter(item => item.total > 0);
+
+            const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+            if (categoryChart) categoryChart.destroy();
+
+            const categoryColors = ['#9B7652', '#A3A999', '#5A6B7A', '#E8DCC8', '#8B6B47'];
+            categoryChart = new Chart(categoryCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: categoryStats.map(s => s.category),
+                    datasets: [{
+                        data: categoryStats.map(s => s.total),
+                        backgroundColor: categoryColors.slice(0, categoryStats.length),
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+
+            // Date Chart
+            const dateStats = {};
+            filtered.forEach(e => {
+                dateStats[e.date] = (dateStats[e.date] || 0) + e.amount;
+            });
+
+            const sortedDates = Object.keys(dateStats).sort();
+            const dateCtx = document.getElementById('dateChart').getContext('2d');
+            if (dateChart) dateChart.destroy();
+
+            dateChart = new Chart(dateCtx, {
+                type: 'line',
+                data: {
+                    labels: sortedDates.map(d => new Date(d).toLocaleDateString('ru-RU', { month: 'short', day: 'numeric' })),
+                    datasets: [{
+                        label: 'Расходы (₽)',
+                        data: sortedDates.map(d => dateStats[d]),
+                        borderColor: '#9B7652',
+                        backgroundColor: 'rgba(155, 118, 82, 0.1)',
+                        tension: 0.4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        }
+
+        function renderTable() {
+            const filtered = getFilteredExpenses();
+            const tbody = document.getElementById('expenseTable');
+            const symbol = getCurrencySymbol();
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">Расходов не найдено</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(e => `
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
+                    <td class="px-6 py-3 text-sm text-gray-900">${new Date(e.date).toLocaleDateString('ru-RU')}</td>
+                    <td class="px-6 py-3 text-sm text-gray-700">${e.category}</td>
+                    <td class="px-6 py-3 text-sm font-medium text-gray-900 text-right">${e.amount.toFixed(2)} ${symbol}</td>
+                    <td class="px-6 py-3 text-sm text-gray-600">${e.notes}</td>
+                    <td class="px-6 py-3 text-center">
+                        <button onclick="deleteExpense(${e.id})" class="text-red-500 hover:text-red-700">🗑️</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function deleteExpense(id) {
+            db.ref('expenses/' + id).remove();
+        }
+
+        // ==================== SUMMARY TAB ====================
+        function renderSummaryTab() {
+            const dateFrom = document.getElementById('summaryDateFrom').value;
+            const dateTo = document.getElementById('summaryDateTo').value;
+
+            let filtered = expenses;
+            if (dateFrom) filtered = filtered.filter(e => e.date >= dateFrom);
+            if (dateTo) filtered = filtered.filter(e => e.date <= dateTo);
+
+            // Category stats
+            const categoryStats = CATEGORIES.map(cat => {
+                const total = filtered
+                    .filter(e => e.category === cat)
+                    .reduce((sum, e) => sum + e.amount, 0);
+                return { category: cat, total: total };
+            }).filter(item => item.total > 0)
+            .sort((a, b) => b.total - a.total);
+
+            // Chart
+            const ctx = document.getElementById('summaryChart').getContext('2d');
+            if (summaryChart) summaryChart.destroy();
+
+            const categoryColors = ['#9B7652', '#A3A999', '#5A6B7A', '#E8DCC8', '#8B6B47'];
+            summaryChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: categoryStats.map(s => s.category),
+                    datasets: [{
+                        label: 'Расходы (€)',
+                        data: categoryStats.map(s => s.total),
+                        backgroundColor: categoryColors.slice(0, categoryStats.length),
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { display: false } },
+                    scales: { x: { beginAtZero: true } }
+                }
+            });
+
+            // Details
+            const symbol = getCurrencySymbol();
+            const totalExpenses = filtered.reduce((sum, e) => sum + e.amount, 0);
+            const incomeInRange = income.filter(i => {
+                let ok = true;
+                if (dateFrom) ok = ok && i.date >= dateFrom;
+                if (dateTo) ok = ok && i.date <= dateTo;
+                return ok;
+            }).reduce((sum, i) => sum + i.amount, 0);
+
+            const detailsHtml = `
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <p class="text-sm text-gray-600">Период: ${dateFrom || '--'} до ${dateTo || '--'}</p>
+                    <p class="text-lg font-bold text-gray-900 mt-2">Всего расходов: ${totalExpenses.toFixed(2)} ${symbol}</p>
+                    <p class="text-lg font-bold text-gray-900">Приход в периоде: ${incomeInRange.toFixed(2)} ${symbol}</p>
+                    <p class="text-lg font-bold mt-2" style="color: var(--color-brown);">Баланс: ${(incomeInRange - totalExpenses).toFixed(2)} ${symbol}</p>
+                </div>
+
+                <div class="space-y-2">
+                    ${categoryStats.map(s => `
+                        <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
+                            <span class="font-medium text-gray-900">${s.category}</span>
+                            <span class="text-gray-900">${s.total.toFixed(2)} ${symbol}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            document.getElementById('summaryDetails').innerHTML = detailsHtml;
+        }
+
+        // ==================== MONTHLY TAB ====================
+        function renderMonthlyTab() {
+            renderMonthlyTable();
+            renderAccumulationChart();
+        }
+
+        function renderMonthlyTable() {
+            const tbody = document.getElementById('monthlyTable');
+            const symbol = getCurrencySymbol();
+
+            const months = MONTHS.map((_, i) => {
+                const key = `2026-${String(i + 1).padStart(2, '0')}`;
+                return monthlyData[key] || null;
+            });
+
+            const rows = [
+                { label: 'Остаток', getter: d => d?.balance || 0 },
+                { label: 'Приход', getter: d => d?.income || 0 },
+                { label: 'Расходы', getter: d => d?.expenses || 0 },
+                { label: 'Накопления', getter: d => (d?.balance || 0) + (d?.income || 0) - (d?.expenses || 0) },
+            ];
+
+            tbody.innerHTML = rows.map(row => `
+                <tr class="border-b border-gray-200">
+                    <td class="px-4 py-2 font-medium text-gray-900">${row.label}</td>
+                    ${months.map(m => `<td class="px-4 py-2 text-center text-gray-900">${row.getter(m).toFixed(2)} ${symbol}</td>`).join('')}
+                </tr>
+            `).join('');
+        }
+
+        function renderAccumulationChart() {
+            const accumulation = [];
+            let sum = 0;
+
+            MONTHS.forEach((month, i) => {
+                const key = `2026-${String(i + 1).padStart(2, '0')}`;
+                const data = monthlyData[key];
+                if (data) {
+                    sum += (data.balance + data.income - data.expenses);
+                    accumulation.push({ month: month, value: sum });
+                }
+            });
+
+            const ctx = document.getElementById('accumulationChart').getContext('2d');
+            if (accumulationChart) accumulationChart.destroy();
+
+            accumulationChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: accumulation.map(a => a.month),
+                    datasets: [{
+                        label: 'Накопления (₽)',
+                        data: accumulation.map(a => a.value),
+                        borderColor: '#A3A999',
+                        backgroundColor: 'rgba(163, 169, 153, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { display: true } }
+                }
+            });
+        }
+
+        // ==================== BUDGET TAB ====================
+        function renderBudgetTab() {
+            const version = document.querySelector('input[name="budgetVersion"]:checked').value;
+            const budgets = BUDGET_DATA[version];
+            const tbody = document.getElementById('budgetTable');
+            const symbol = getCurrencySymbol();
+
+            let totalBudget = 0;
+            let totalSpent = 0;
+
+            const rows = Object.entries(budgets).map(([category, budget]) => {
+                const spent = expenses
+                    .filter(e => e.category.toLowerCase().includes(category.toLowerCase()) || category.toLowerCase().includes(e.category.toLowerCase()))
+                    .reduce((sum, e) => sum + e.amount, 0);
+
+                totalBudget += budget;
+                totalSpent += spent;
+
+                const remaining = budget - spent;
+                const percentage = ((spent / budget) * 100).toFixed(0);
+                const color = percentage > 100 ? 'bg-red-50' : percentage > 80 ? 'bg-yellow-50' : 'bg-green-50';
+
+                return `
+                    <tr class="${color} border-b border-gray-200">
+                        <td class="px-6 py-3 text-sm font-medium text-gray-900">${category}</td>
+                        <td class="px-6 py-3 text-right text-sm text-gray-900">${budget.toFixed(2)} ${symbol}</td>
+                        <td class="px-6 py-3 text-right text-sm text-gray-900">${spent.toFixed(2)} ${symbol}</td>
+                        <td class="px-6 py-3 text-right text-sm font-medium">${remaining.toFixed(2)} ${symbol}</td>
+                        <td class="px-6 py-3 text-center text-sm font-medium">${percentage}%</td>
+                    </tr>
+                `;
+            }).join('');
+
+            const totalRow = `
+                <tr class="bg-gray-100 font-bold">
+                    <td class="px-6 py-3 text-sm text-gray-900">ИТОГО</td>
+                    <td class="px-6 py-3 text-right text-sm text-gray-900">${totalBudget.toFixed(2)} ${symbol}</td>
+                    <td class="px-6 py-3 text-right text-sm text-gray-900">${totalSpent.toFixed(2)} ${symbol}</td>
+                    <td class="px-6 py-3 text-right text-sm text-gray-900">${(totalBudget - totalSpent).toFixed(2)} ${symbol}</td>
+                    <td class="px-6 py-3 text-center text-sm text-gray-900">${((totalSpent / totalBudget) * 100).toFixed(0)}%</td>
+                </tr>
+            `;
+
+            tbody.innerHTML = rows + totalRow;
+        }
+
+        // ==================== UPLOAD TAB ====================
+        function uploadMonthlyData() {
+            const month = document.getElementById('uploadMonth').value;
+            const balance = parseFloat(document.getElementById('uploadBalance').value) || 0;
+            const incomeAmount = parseFloat(document.getElementById('uploadIncome').value) || 0;
+            const expenses = parseFloat(document.getElementById('uploadExpenses').value) || 0;
+
+            if (!month) {
+                alert('Выберите месяц');
+                return;
+            }
+
+            db.ref('monthlyData/' + month).set({ balance, income: incomeAmount, expenses });
+
+            document.getElementById('uploadMonth').value = '';
+            document.getElementById('uploadBalance').value = '';
+            document.getElementById('uploadIncome').value = '';
+            document.getElementById('uploadExpenses').value = '';
+
+            renderUploadedData();
+        }
+
+        function renderUploadedData() {
+            const list = document.getElementById('uploadedDataList');
+            const entries = Object.entries(monthlyData);
+            const symbol = getCurrencySymbol();
+
+            if (entries.length === 0) {
+                list.innerHTML = '<p class="text-gray-500">Пока нет загруженных данных</p>';
+                return;
+            }
+
+            list.innerHTML = entries.map(([month, data]) => `
+                <div class="bg-gray-50 rounded-lg p-4 flex justify-between items-center">
+                    <div>
+                        <p class="font-medium text-gray-900">${month}</p>
+                        <p class="text-sm text-gray-600">Остаток: ${data.balance.toFixed(2)} ${symbol} | Приход: ${data.income.toFixed(2)} ${symbol} | Расходы: ${data.expenses.toFixed(2)} ${symbol}</p>
+                    </div>
+                    <button onclick="deleteMonthlyData('${month}')" class="text-red-500 hover:text-red-700">🗑️</button>
+                </div>
+            `).join('');
+        }
+
+        function deleteMonthlyData(month) {
+            db.ref('monthlyData/' + month).remove();
+        }
+
+        // ==================== EXPORT ====================
+        function exportAllData() {
+            let csv = 'Дневной трекер (€)\n\n';
+            csv += 'Дата,Категория,Сумма,Примечание\n';
+            expenses.forEach(e => {
+                csv += `${e.date},"${e.category}",${e.amount},"${e.notes}"\n`;
+            });
+
+            csv += '\n\nПриходы\n\n';
+            csv += 'Дата,Сумма,Описание\n';
+            income.forEach(i => {
+                csv += `${i.date},${i.amount},"${i.notes}"\n`;
+            });
+
+            csv += '\n\nМесячные данные (€)\n\n';
+            csv += 'Месяц,Остаток,Приход,Расходы,Накопления\n';
+            Object.entries(monthlyData).forEach(([month, data]) => {
+                const accumulation = data.balance + data.income - data.expenses;
+                csv += `${month},${data.balance},${data.income},${data.expenses},${accumulation}\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `all-data-${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+        }
+
+        function exportTrackerCSV() {
+            const filtered = getFilteredExpenses();
+            const csv = [
+                'Дата,Категория,Сумма (€),Примечания',
+                ...filtered.map(e => `${e.date},"${e.category}",${e.amount},"${e.notes || ''}"`)
+            ].join('\n');
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `expenses-${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+        }
+
+        // Start app
+        init();
+        renderUploadedData();
+    </script>
+</body>
+</html>
