@@ -437,7 +437,7 @@
         // ==================== INIT ====================
         function init() {
             setupCategories();
-            setupForm();
+            
             setupTransactionForm();
             setupFilters();
             setupSummary();
@@ -475,6 +475,7 @@
             db.ref('monthlyData').on('value', (snapshot) => {
                 monthlyData = snapshot.val() || {};
                 renderAllTabs();
+                                renderUploadedData();
             });
         }
 
@@ -561,30 +562,6 @@
 
             filterCategory.innerHTML = '<option value="all">Все категории</option>' + filterCategory.innerHTML;
 
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('date').value = today;
-        }
-
-        function setupForm() {
-            document.getElementById('expenseForm').addEventListener('submit', (e) => {
-                e.preventDefault();
-                const amount = parseFloat(document.getElementById('amount').value);
-                if (!amount) return;
-
-                const today = new Date().toISOString().split('T')[0];
-                expenses.unshift({
-                    id: Date.now(),
-                    category: document.getElementById('category').value,
-                    amount: amount,
-                    date: document.getElementById('date').value,
-                    notes: document.getElementById('notes').value,
-                });
-
-                localStorage.setItem('expenses', JSON.stringify(expenses));
-                document.getElementById('expenseForm').reset();
-                document.getElementById('date').value = today;
-                renderAllTabs();
-            });
         }
 
         function setupFilters() {
@@ -746,7 +723,7 @@
                     <td class="px-6 py-3 text-sm font-medium text-gray-900 text-right">${e.amount.toFixed(2)} ${symbol}</td>
                     <td class="px-6 py-3 text-sm text-gray-600">${e.notes}</td>
                     <td class="px-6 py-3 text-center">
-                        <button onclick="deleteExpense(${e.id})" class="text-red-500 hover:text-red-700">🗑️</button>
+                        <button onclick="deleteExpense('${e.id}')" class="text-red-500 hover:text-red-700">🗑️</button>
                     </td>
                 </tr>
             `).join('');
