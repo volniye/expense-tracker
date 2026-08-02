@@ -371,56 +371,67 @@
             return '€';
         }
 
-        const CATEGORIES = [
-            'Еда дома',
-            'Обычная',
-            'Снеки/чипсы',
-            'Сладкое, газировка',
-            'Готовая',
-            'Еда вне дома',
-            'Квартира',
-            'Аренда',
-            'Коммунальные платежи',
-            'Цифровые услуги',
-            'Интернет',
-            'Подписки',
-            'Курение',
-            'Банковские услуги',
-        ];
+        const CATEGORY_GROUPS = [
+            { group: 'Еда дома', items: ['Обычная', 'Снеки/чипсы и пр.', 'Сладкое, газировка', 'Готовая'] },
+            { group: 'Еда вне дома, фаст фуд', items: [] },
+            { group: 'Бытовая химия, гигиена', items: [] },
+            { group: 'Курение', items: [] },
+            { group: 'Квартира', items: ['Аренда', 'Коммунальные платежи'] },
+            { group: 'Цифровые услуги', items: ['Моб. связь', 'Интернет', 'Подписки, интернет-услуги', 'Спотифай', 'GPT (ИИ)', 'ВПН'] },
+            { group: 'Банковские услуги', items: ['Тинькофф', 'PRVA', 'Nickel', 'BBVA', 'IBT'] },
+            { group: 'Услуги развития', items: ['Терапия', 'Языковые курсы', 'Хестер', 'Спорт (тренировки/зал)'] },
+            { group: 'Налог', items: [] },
+            { group: 'Страховка', items: [] },
+            { group: 'Путешествия/досуг', items: ['Билеты - транспорт', 'Аренда жилья', 'Аренда машины/такси', 'Бензин, платка', 'Парковка', 'Входные билеты'] },
+            { group: 'Прочие услуги', items: ['Курьеры', 'Легализация'] },
+            { group: 'Медицина/косметология', items: ['Врачи', 'Лекарства', 'Косметологические услуги', 'Косметика'] },
+            { group: 'Канцелярия', items: ['Печать документов', 'Канц. товары'] },
+            { group: 'Благотворительность', items: [] },
+            { group: 'Функциональные расходы', items: ['Одежда', 'Обувь', 'Техника', 'Товары для дома', 'Посуда'] },
+            { group: 'Подарки', items: [] },
+            { group: 'Проебанное', items: [] },
+                    ];
+                const ALL_CATEGORIES = CATEGORY_GROUPS.flatMap(g => g.items.length ? g.items : [g.group]);
 
-        const BUDGET_DATA = {
-            max: {
-                'Еда': 13200.00,
-                'Бытовая химия': 1200.00,
-                'Курение': 600.00,
-                'Квартира': 9000.00,
-                'цифр услуги + банкинг': 1800.00,
-                'Услуги развития': 8760.00,
-                'Налоги': 15220.80,
-                'Страховка': 2135.88,
-                'Бл-ть': 600.00,
-                'Медицина/косметология': 2000.00,
-                'Финанц расходы': 2000.00,
-                'Подарки': 2000.00,
-                'Путешествия': 6000.00,
-            },
-            econ: {
-                'Еда': 9600.00,
-                'Бытовая химия': 1200.00,
-                'Курение': 100.00,
-                'Квартира': 9000.00,
-                'цифр услуги + банкинг': 1800.00,
-                'Услуги развития': 6840.00,
-                'Налоги': 15220.80,
-                'Страховка': 2135.88,
-                'Бл-ть': 600.00,
-                'Медицина/косметология': 2000.00,
-                'Финанц расходы': 2000.00,
-                'Подарки': 2000.00,
-                'Путешествия': 6000.00,
-            }
-        };
+                const CATEGORY_TO_GROUP = {};
+                CATEGORY_GROUPS.forEach(g => {
+                                CATEGORY_TO_GROUP[g.group] = g.group;
+                                g.items.forEach(item => { CATEGORY_TO_GROUP[item] = g.group; });
+                });
 
+                const BUDGET_DATA = {
+                                max: {
+                                                    'Еда': { budget: 13200.00, groups: ['Еда дома', 'Еда вне дома, фаст фуд'] },
+                                                    'Бытовая химия': { budget: 1200.00, groups: ['Бытовая химия, гигиена'] },
+                                                    'Курение': { budget: 600.00, groups: ['Курение'] },
+                                                    'Квартира': { budget: 9000.00, groups: ['Квартира'] },
+                                                    'Цифр. услуги + банкинг': { budget: 1800.00, groups: ['Цифровые услуги', 'Банковские услуги'] },
+                                                    'Услуги развития': { budget: 8760.00, groups: ['Услуги развития'] },
+                                                    'Налоги': { budget: 15220.80, groups: ['Налог'] },
+                                                    'Страховка': { budget: 2135.88, groups: ['Страховка'] },
+                                                    'Бл-ть': { budget: 600.00, groups: ['Благотворительность'] },
+                                                    'Медицина/косметология': { budget: 2000.00, groups: ['Медицина/косметология'] },
+                                                    'Финанц расходы': { budget: 2000.00, groups: ['Прочие услуги', 'Канцелярия', 'Функциональные расходы', 'Проебанное'] },
+                                                    'Подарки': { budget: 2000.00, groups: ['Подарки'] },
+                                                    'Путешествия': { budget: 6000.00, groups: ['Путешествия/досуг'] },
+                                },
+                                econ: {
+                                                    'Еда': { budget: 9600.00, groups: ['Еда дома', 'Еда вне дома, фаст фуд'] },
+                                                    'Бытовая химия': { budget: 1200.00, groups: ['Бытовая химия, гигиена'] },
+                                                    'Курение': { budget: 100.00, groups: ['Курение'] },
+                                                    'Квартира': { budget: 9000.00, groups: ['Квартира'] },
+                                                    'Цифр. услуги + банкинг': { budget: 1800.00, groups: ['Цифровые услуги', 'Банковские услуги'] },
+                                                    'Услуги развития': { budget: 6840.00, groups: ['Услуги развития'] },
+                                                    'Налоги': { budget: 15220.80, groups: ['Налог'] },
+                        'Страховка': { budget: 2135.88, groups: ['Страховка'] },
+                                                    'Бл-ть': { budget: 600.00, groups: ['Благотворительность'] },
+                                                    'Медицина/косметология': { budget: 2000.00, groups: ['Медицина/косметология'] },
+                                                    'Финанц расходы': { budget: 2000.00, groups: ['Прочие услуги', 'Канцелярия', 'Функциональные расходы', 'Проебанное'] },
+                                                    'Подарки': { budget: 2000.00, groups: ['Подарки'] },
+                                                    'Путешествия': { budget: 6000.00, groups: ['Путешествия/досуг'] },
+                                }
+                };
+        
         const MONTHS = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
 
         // ==================== STATE ====================
@@ -545,25 +556,38 @@
         }
 
         function setupCategories() {
-            const categorySelect = document.getElementById('category');
-            const filterCategory = document.getElementById('filterCategory');
+                        const categorySelect = document.getElementById('category');
+                        const filterCategory = document.getElementById('filterCategory');
 
-            CATEGORIES.forEach(cat => {
-                const option = document.createElement('option');
-                option.value = cat;
-                option.textContent = cat;
-                categorySelect.appendChild(option);
+                        CATEGORY_GROUPS.forEach(g => {
+                                            if (g.items.length > 0) {
+                                                                    const optgroup = document.createElement('optgroup');
+                                                                    optgroup.label = g.group;
+                                                                    g.items.forEach(item => {
+                                                                                                const option = document.createElement('option');
+                                                                                                option.value = item;
+                                                                                                option.textContent = item;
+                                                                                                optgroup.appendChild(option);
+                                                                    });
+                                                                    categorySelect.appendChild(optgroup);
+                                            } else {
+                                                                    const option = document.createElement('option');
+                                                                    option.value = g.group;
+                                                                    option.textContent = g.group;
+                                                                    categorySelect.appendChild(option);
+                                            }
+                        });
 
-                const filterOption = document.createElement('option');
-                filterOption.value = cat;
-                filterOption.textContent = cat;
-                filterCategory.appendChild(filterOption);
-            });
+                        ALL_CATEGORIES.forEach(cat => {
+                                            const filterOption = document.createElement('option');
+                                            filterOption.value = cat;
+                                            filterOption.textContent = cat;
+                                            filterCategory.appendChild(filterOption);
+                        });
 
-            filterCategory.innerHTML = '<option value="all">Все категории</option>' + filterCategory.innerHTML;
-
+                        filterCategory.innerHTML = '<option value="all">Все категории</option>' + filterCategory.innerHTML;
         }
-
+        
         function setupFilters() {
             ['filterCategory', 'filterDateFrom', 'filterDateTo'].forEach(id => {
                 document.getElementById(id).addEventListener('change', () => renderTrackerTab());
@@ -651,7 +675,7 @@
             const filtered = getFilteredExpenses();
 
             // Category Chart
-            const categoryStats = CATEGORIES.map(cat => {
+            const categoryStats = ALL_CATEGORIES.map(cat => {
                 const total = filtered.filter(e => e.category === cat).reduce((sum, e) => sum + e.amount, 0);
                 return { category: cat, total: total };
             }).filter(item => item.total > 0);
@@ -743,7 +767,7 @@
             if (dateTo) filtered = filtered.filter(e => e.date <= dateTo);
 
             // Category stats
-            const categoryStats = CATEGORIES.map(cat => {
+            const categoryStats = ALL_CATEGORIES.map(cat => {
                 const total = filtered
                     .filter(e => e.category === cat)
                     .reduce((sum, e) => sum + e.amount, 0);
@@ -875,50 +899,50 @@
 
         // ==================== BUDGET TAB ====================
         function renderBudgetTab() {
-            const version = document.querySelector('input[name="budgetVersion"]:checked').value;
-            const budgets = BUDGET_DATA[version];
-            const tbody = document.getElementById('budgetTable');
-            const symbol = getCurrencySymbol();
+                        const version = document.querySelector('input[name="budgetVersion"]:checked').value;
+                        const budgets = BUDGET_DATA[version];
+                        const tbody = document.getElementById('budgetTable');
+                        const symbol = getCurrencySymbol();
 
-            let totalBudget = 0;
-            let totalSpent = 0;
+                        let totalBudget = 0;
+                        let totalSpent = 0;
 
-            const rows = Object.entries(budgets).map(([category, budget]) => {
-                const spent = expenses
-                    .filter(e => e.category.toLowerCase().includes(category.toLowerCase()) || category.toLowerCase().includes(e.category.toLowerCase()))
-                    .reduce((sum, e) => sum + e.amount, 0);
+                        const rows = Object.entries(budgets).map(([label, info]) => {
+                                            const spent = expenses
+                                                .filter(e => info.groups.includes(CATEGORY_TO_GROUP[e.category] || e.category))
+                                                .reduce((sum, e) => sum + e.amount, 0);
 
-                totalBudget += budget;
-                totalSpent += spent;
+                                            totalBudget += info.budget;
+                                            totalSpent += spent;
 
-                const remaining = budget - spent;
-                const percentage = ((spent / budget) * 100).toFixed(0);
-                const color = percentage > 100 ? 'bg-red-50' : percentage > 80 ? 'bg-yellow-50' : 'bg-green-50';
+                                            const remaining = info.budget - spent;
+                                            const percentage = ((spent / info.budget) * 100).toFixed(0);
+                                            const color = percentage > 100 ? 'bg-red-50' : percentage > 80 ? 'bg-yellow-50' : 'bg-green-50';
 
-                return `
-                    <tr class="${color} border-b border-gray-200">
-                        <td class="px-6 py-3 text-sm font-medium text-gray-900">${category}</td>
-                        <td class="px-6 py-3 text-right text-sm text-gray-900">${budget.toFixed(2)} ${symbol}</td>
-                        <td class="px-6 py-3 text-right text-sm text-gray-900">${spent.toFixed(2)} ${symbol}</td>
-                        <td class="px-6 py-3 text-right text-sm font-medium">${remaining.toFixed(2)} ${symbol}</td>
-                        <td class="px-6 py-3 text-center text-sm font-medium">${percentage}%</td>
-                    </tr>
-                `;
-            }).join('');
+                                            return `
+                                                                <tr class="${color} border-b border-gray-200">
+                                                                                        <td class="px-6 py-3 text-sm font-medium text-gray-900">${label}</td>
+                                                                                                                <td class="px-6 py-3 text-right text-sm text-gray-900">${info.budget.toFixed(2)} ${symbol}</td>
+                                                                                                                                        <td class="px-6 py-3 text-right text-sm text-gray-900">${spent.toFixed(2)} ${symbol}</td>
+                                                                                                                                                                <td class="px-6 py-3 text-right text-sm font-medium">${remaining.toFixed(2)} ${symbol}</td>
+                                                                                                                                                                                        <td class="px-6 py-3 text-center text-sm font-medium">${percentage}%</td>
+                                                                                                                                                                                                            </tr>
+                                                                                                                                                                                                                            `;
+                        }).join('');
 
-            const totalRow = `
-                <tr class="bg-gray-100 font-bold">
-                    <td class="px-6 py-3 text-sm text-gray-900">ИТОГО</td>
-                    <td class="px-6 py-3 text-right text-sm text-gray-900">${totalBudget.toFixed(2)} ${symbol}</td>
-                    <td class="px-6 py-3 text-right text-sm text-gray-900">${totalSpent.toFixed(2)} ${symbol}</td>
-                    <td class="px-6 py-3 text-right text-sm text-gray-900">${(totalBudget - totalSpent).toFixed(2)} ${symbol}</td>
-                    <td class="px-6 py-3 text-center text-sm text-gray-900">${((totalSpent / totalBudget) * 100).toFixed(0)}%</td>
-                </tr>
-            `;
+                        const totalRow = `
+                                        <tr class="bg-gray-100 font-bold">
+                                                            <td class="px-6 py-3 text-sm text-gray-900">ИТОГО</td>
+                                                                                <td class="px-6 py-3 text-right text-sm text-gray-900">${totalBudget.toFixed(2)} ${symbol}</td>
+                                                                                                    <td class="px-6 py-3 text-right text-sm text-gray-900">${totalSpent.toFixed(2)} ${symbol}</td>
+                                                                                                                        <td class="px-6 py-3 text-right text-sm text-gray-900">${(totalBudget - totalSpent).toFixed(2)} ${symbol}</td>
+                                                                                                                                            <td class="px-6 py-3 text-center text-sm text-gray-900">${((totalSpent / totalBudget) * 100).toFixed(0)}%</td>
+                                                                                                                                                            </tr>
+                                                                                                                                                                        `;
 
-            tbody.innerHTML = rows + totalRow;
+                        tbody.innerHTML = rows + totalRow;
         }
-
+        
         // ==================== UPLOAD TAB ====================
         function uploadMonthlyData() {
             const month = document.getElementById('uploadMonth').value;
